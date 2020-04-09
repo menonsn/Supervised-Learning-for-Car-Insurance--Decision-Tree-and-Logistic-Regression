@@ -1,0 +1,566 @@
+---
+title: "IS7036 - Data Mining for Business Intelligence - Supervised Learning - Team Project"
+---
+\
+\
+\
+\
+
+<center> 
+# University of Cincinnati
+\
+
+# Team Project - Predicting Customer's Response to an Offer 
+
+\
+
+# Team Members
+
+## Rohit Jayakumar Nair [M13251730]
+
+
+## Siddharth Narayana Menon [M13489503]
+
+
+## Anamika Mishra [M13440005]
+
+
+## Dominic Franco [M06338256]
+
+
+## Roshan Khandare [M13262333]
+</center>
+\
+\
+\
+\
+\
+\
+\
+
+## Executive Summary
+
+Marketing Customer Value dataset provided by IBM Watson Analytics gives you information about customers. This rich dataset can be used to predict their behavior to retain your customers. Analysis on this dataset can be used to understand the behavior of customers and buying habits. We can analyze all relevant customer data to understand customer demographics and develop focused customer retention programs.
+\
+
+ 
+
+
+We can analyze the most profitable customers and how they interact and help take targeted actions to increase profitable customer response, retention, and growth.
+\
+
+ 
+
+The purpose of this project is to determine the response of the customer whether they would accept or reject the offer we make based on the customer profile. The profile of the customer is built upon based on details such as Employment status, Marital status, Income group, etc.
+\
+
+ 
+
+We’ve created two models on top this dataset using Logistic Regression and Decision Tree. Based on the testing dataset and the model built upon training dataset, accuracy is determined by cross checking the model output with the response we already have. Using this we determined the challenger model and champion model based on the accuracy.
+\
+
+ 
+
+The report progresses with different parts of regression model-building process such as model specification, parameter estimation, model adequacy checking, and model validation.
+\
+
+ 
+
+The report concludes with determining the champion model based on the accuracy which will predict the possibility of a customer accepting or rejecting the offer.
+\
+\
+
+ 
+
+## Chapter 1: Data Introduction
+
+ 
+
+The statistics are about whether the customer has accepted or rejected the offer extended to them along with the customer profile containing personal information. From the available attributes, we are initially considering the following covariates:
+\
+
+ 
+
+We picked the dataset from IBM Watson Analytics Gallery. The statistics are about whether the customer has accepted or rejected the offer extended to them along with the customer profile containing personal information, Policy and Vehicle Information. 
+Customer profile is built upon the personal information displayed in tabular format below.
+\
+
+ 
+
+We have 9134 unique observation in total. We created training dataset and testing dataset by splitting original dataset into 70-30 ratio where 70% of dataset is used for training and remaining 30% for testing the model
+\
+
+Import all the libraries:
+```{r}
+library('ggcorrplot')
+library('ggplot2')
+library('ROCR')
+library('car')
+library("dplyr")
+library('rpart')
+library('tidyverse')
+library('corrgram')
+library('glmnet')
+library('boot')
+```
+
+Loading the dataset.
+```{r}
+insurance.data<-read.csv("~/Assignment/WA_Fn-UseC_-Marketing-Customer-Value-Analysis.csv")
+head(insurance.data)
+```
+
+\
+##Data Exploration
+
+\
+```{r}
+sapply(insurance.data, class)
+summary(insurance.data)
+str(insurance.data)
+glimpse(insurance.data)
+```
+
+Use sapply() function to count the number of observations with each feature that contains.
+
+```{r}
+sapply(insurance.data, function(x) sum(is.na(x)))
+```
+#Similarly, the number of unique observations per column is revealed below.
+```{r}
+sapply(insurance.data, function(x) length(unique(x)))
+```
+
+Using the missmap() function under the Amelia package, the visualization of the amount of missing and observed values per features is observed below.
+Most information in the Cabin and Age features are missing in both datasets.
+```{r}
+library(Amelia)
+missmap(insurance.data, main = "Missing Values vs. Observed")
+```
+Our data contains 9134 customers with information about their income, education, gender,residence and so on. 
+
+Each customer owns a car and you as entrepreneur offers 4 different car insurances to them.
+The target of this dataset is the Response.The response can be "Yes" - the customer accept the offer and "No" - the customer didn´t accept the offer.
+\
+#Using Graphs to understand our Data
+\
+# Relation between numerical variables
+```{r}
+
+nums <- unlist(lapply(insurance.data, is.numeric)) 
+insurance_numeric<-insurance.data[,nums]
+corr<-cor(insurance_numeric)
+
+library(ggcorrplot)
+ggcorrplot(corr, hc.order = TRUE, type = "lower",lab = TRUE)
+```
+\
+## Exploratory Data Analysis
+\
+Relation between categorial variables and response variable
+Gender - > Response
+
+```{r}
+library(ggcorrplot)
+tbl_gen <- with(insurance.data, table(Gender, Response))
+ggplot(as.data.frame(tbl_gen), aes(factor(Response),Freq, fill=Gender) )+ geom_col(position = 'dodge')
+```
+
+State - > Response
+```{r}
+library(ggcorrplot)
+tbl_State <- with(insurance.data, table(State, Response))
+ggplot(as.data.frame(tbl_State), aes(factor(State),Freq, fill=Response) )+ geom_col(position = 'dodge')
+```
+
+Coverage -> Response
+```{r}
+library(ggcorrplot)
+tbl_Coverage <- with(insurance.data, table(Coverage, Response))
+ggplot(as.data.frame(tbl_Coverage), aes(factor(Coverage),Freq, fill=Response) )+ geom_col(position = 'dodge')
+```
+
+Education -> Response
+```{r}
+library(ggcorrplot)
+tbl_Education <- with(insurance.data, table(Education, Response))
+ggplot(as.data.frame(tbl_Coverage), aes(factor(Coverage),Freq, fill=Response) )+ geom_col(position = 'dodge')
+```
+
+EmploymentStatus   -> Response
+```{r}
+library(ggcorrplot)
+tbl_EmploymentStatus <- with(insurance.data, table(EmploymentStatus, Response))
+ggplot(as.data.frame(tbl_EmploymentStatus), aes(factor(EmploymentStatus),Freq, fill=Response) )+ geom_col(position = 'dodge')
+```
+
+Location Code - > Response
+```{r}
+library(ggcorrplot)
+tbl_LocationCode <- with(insurance.data, table(Location.Code, Response))
+ggplot(as.data.frame(tbl_LocationCode), aes(factor(Location.Code),Freq, fill=Response) )+ geom_col(position = 'dodge')
+```
+
+Marital.Status -> Response
+```{r}
+library(ggcorrplot)
+tbl_MaritalStatus <- with(insurance.data, table(Marital.Status, Response))
+ggplot(as.data.frame(tbl_MaritalStatus), aes(factor(Marital.Status),Freq, fill=Response) )+ geom_col(position = 'dodge')
+```
+
+Monthly.Premium.Auto -> Response
+```{r}
+library(ggcorrplot)
+ggplot(insurance.data, aes(x = Monthly.Premium.Auto,fill=Response)) + geom_histogram(position = 'dodge')
+```
+
+Months.Since.Last.Claim  -> Response
+```{r}
+library(ggcorrplot)
+ggplot(insurance.data, aes(x = Months.Since.Last.Claim ,fill=Response)) + geom_histogram(position = 'dodge') 
+```
+
+Months.Since.Policy.Inception  -> Response
+```{r}
+library(ggcorrplot)
+ggplot(insurance.data, aes(x = Months.Since.Policy.Inception ,fill=Response)) + geom_histogram(position = 'dodge') 
+```
+
+Number.of.Open.Complaints  -> Response
+```{r}
+library(ggcorrplot)
+ggplot(insurance.data, aes(x = Number.of.Open.Complaints  ,fill=Response)) + geom_histogram(position = 'dodge') 
+```
+
+Number.of.Policies  -> Response
+```{r}
+library(ggcorrplot)
+ggplot(insurance.data, aes(x = Number.of.Policies  ,fill=Response)) + geom_histogram(position = 'dodge')
+```
+
+Policy.Type -> Response
+```{r}
+library(ggcorrplot)
+tbl_PolicyType <- with(insurance.data, table(Policy.Type, Response))
+ggplot(as.data.frame(tbl_PolicyType), aes(factor(Policy.Type),Freq, fill=Response) )+ geom_col(position = 'dodge')
+```
+
+Renew.Offer.Type -> Response
+```{r}
+library(ggcorrplot)
+tbl_RenewOfferType <- with(insurance.data, table(Renew.Offer.Type, Response))
+ggplot(as.data.frame(tbl_RenewOfferType), aes(factor(Renew.Offer.Type),Freq, fill=Response) )+ geom_col(position = 'dodge')
+```
+
+Sales.Channel -> Response
+```{r}
+library(ggcorrplot)
+tbl_SalesChannel <- with(insurance.data, table(Sales.Channel, Response))
+ggplot(as.data.frame(tbl_SalesChannel), aes(factor(Sales.Channel),Freq, fill=Response) )+ geom_col(position = 'dodge')
+```
+
+Total.Claim.Amount  -> Response
+```{r}
+library(ggcorrplot)
+ggplot(insurance.data, aes(x = Total.Claim.Amount  ,fill=Response)) + geom_histogram(position = 'dodge')
+```
+
+Vehicle.Class -> Response
+```{r}
+library(ggcorrplot)
+tbl_VehicleClass <- with(insurance.data, table(Vehicle.Class, Response))
+ggplot(as.data.frame(tbl_VehicleClass), aes(factor(Vehicle.Class),Freq, fill=Response) )+ geom_col(position = 'dodge')
+```
+
+Vehicle.Size -> Response
+```{r}
+library(ggcorrplot)
+tbl_VehicleSize <- with(insurance.data, table(Vehicle.Size, Response))
+ggplot(as.data.frame(tbl_VehicleSize), aes(factor(Vehicle.Size),Freq, fill=Response) )+ geom_col(position = 'dodge')
+```
+
+\
+##Data Wrangling - cleaning
+\
+All categorial features are well distributet, so I will keep them and encode them to numerical data.
+Some columns don´t make sense or are not so important, e.g. Customer (because it´s just a unique number), 
+
+Policy is the same as Policy Type, Effective To Date is also not important, so I will drop them.
+\
+```{r}
+insurance.data = subset(insurance.data , select = -c(Customer,Policy,Effective.To.Date) )
+str(insurance.data)
+```
+Encode the categorial Data to numerical 
+```{r}
+encode_ordinal <- function(x, order = unique(x)) {
+  x <- as.numeric(factor(x, levels = order, exclude = NULL))
+  x
+}
+
+table(insurance.data[["Response"]], encode_ordinal(insurance.data[["Response"]]), useNA = "ifany")
+```
+Updated Dataset
+```{r}
+
+insurance.data.new <- insurance.data
+insurance.data.new[["Response"]] <- encode_ordinal(insurance.data[["Response"]])
+head(insurance.data.new)
+
+str(insurance.data.new)
+```
+\
+##Correlation Graph
+\
+Analyzing the relationship between feature variables and the target variable
+```{r}
+
+nums_new <- unlist(lapply(insurance.data.new, is.numeric)) 
+insurance_numeric_new<-insurance.data.new[,nums_new]
+corrnew<-cor(insurance_numeric_new)
+
+library(ggcorrplot)
+ggcorrplot(corrnew, hc.order = TRUE, type = "lower",lab = TRUE)
+
+library("ggplot2")
+library(reshape2)
+melted_cormat <- melt(corrnew)
+head(melted_cormat)
+
+library(ggplot2)
+ggplot(data = melted_cormat, aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile()+theme(axis.text.x=element_text(angle = 90)) 
+```
+\
+##Model building
+\
+##Logistic regression
+\
+```{r}
+insurance.data.new$Response[insurance.data.new$Response==1] <- 0
+insurance.data.new$Response[insurance.data.new$Response==2] <- 1
+
+insurance.datas <- insurance.data[ , -which(names(insurance.data) %in% c("Customer","Policy","Effective.To.Date"))]
+```
+
+Split the data
+```{r}
+set.seed(13255870)
+index <- sample(nrow(insurance.data.new),nrow(insurance.data.new)*0.70)
+insurance.train = insurance.data.new[index,]
+insurance.test = insurance.data.new[-index,]
+
+str(insurance.train)
+
+```
+
+model
+```{r}
+glm0<-glm(Response~.,family = binomial(link = 'logit'),data = insurance.train)
+summary(glm0)
+
+insurance_model0_insample <- predict(glm0, type="response")
+pred <- prediction(insurance_model0_insample,insurance.train$Response)
+perf <- performance(pred,"tpr","fpr")
+plot(perf,colorize=TRUE)
+```
+
+Get Area Under Curve (AUC)
+```{r}
+
+cat('AUC for full model is ',unlist(slot(performance(pred, "auc"), "y.values")))
+```
+
+Using Model for our Testing data
+```{r}
+insurance_model0_insample <- predict(glm0, newdata =insurance.test ,type="response")
+pred <- prediction(insurance_model0_insample,insurance.test$Response)
+perf <- performance(pred,"tpr","fpr")
+plot(perf,colorize=TRUE)
+```
+
+Get Area Under Curve (AUC)
+```{r}
+cat('AUC for full model is ',unlist(slot(performance(pred, "auc"), "y.values")))
+```
+
+
+Confusion Matrix
+```{r}
+predict.insurance.glm <- predict(glm0, newdata = insurance.test, type = "response")
+conf.mat.glm <- table(insurance.test$Response, predict.insurance.glm>.5)
+
+fourfoldplot(conf.mat.glm, color = c("#CC6666", "#99CC99"),
+             conf.level = 0, margin = 1, main = "Confusion Matrix GLM")
+
+glm_accuracy <- (2312+63)/(2312+23+343+63)
+glm_recall <- 63/(63+2312)
+glm_precision <- 63/(63+343)
+
+ 
+glm_accuracy 
+glm_recall 
+glm_precision
+
+ 
+resp_count <- insurance.data.new %>% group_by(Response) %>% summarise(count = n())
+resp_count
+```
+
+\
+##Logistic Regression Model number 2 Using Lasso
+\
+```{r}
+
+dummy<- model.matrix(~ ., data = insurance.data.new)
+insurance_data_lasso <- data.frame(dummy[,-1])
+insurance.train.X <- as.matrix(select(insurance_data_lasso, -Response)[index,])
+insurance.test.X <- as.matrix(select(insurance_data_lasso, -Response)[-index,])
+insurance.train.Y <- insurance_data_lasso[index, "Response"]
+insurance.test.Y <- insurance_data_lasso[-index, "Response"]
+
+
+insurance_lasso <- glmnet(x=insurance.train.X, y=insurance.train.Y, family = "binomial")
+insurance_lasso_cv <- cv.glmnet(x=insurance.train.X, y=insurance.train.Y, family = "binomial", type.measure = "class")
+plot(insurance_lasso_cv)
+
+par(mfrow=c(1,1))
+
+coef(insurance_lasso, s=insurance_lasso_cv$lambda.min)
+coef(insurance_lasso, s=insurance_lasso_cv$lambda.1se)
+
+pred.lasso.train<- predict(insurance_lasso, newx=insurance.train.X, s=insurance_lasso_cv$lambda.min, type = "response")
+
+pred <- prediction(pred.lasso.train,insurance.train.Y)
+perf <- performance(pred,"tpr","fpr")
+plot(perf,colorize=TRUE)
+```
+
+Get Area Under Curve (AUC)
+```{r}
+cat('AUC for full model is ',unlist(slot(performance(pred, "auc"), "y.values")))
+
+```
+
+Out-of-sample prediction
+```{r}
+
+pred.lasso.test<- predict(insurance_lasso, newx=insurance.test.X, s=insurance_lasso_cv$lambda.min, type = "response")
+
+pred <- prediction(pred.lasso.test,insurance.test.Y)
+perf <- performance(pred,"tpr","fpr")
+plot(perf,colorize=TRUE)
+```
+Get Area Under Curve (AUC)
+```{r}
+cat('AUC for full model is ',unlist(slot(performance(pred, "auc"), "y.values")))
+```
+
+Confusion Matrix 
+```{r}
+conf.mat.lasso <- table(insurance.test$Response, pred.lasso.test>.5)
+
+fourfoldplot(conf.mat.lasso, color = c("#CC6666", "#99CC99"),
+             conf.level = 0, margin = 1, main = "Confusion Matrix Lasso")
+
+lasso_accuracy <- (2280 + 13)/(2280+55+393+13)
+lasso_accuracy
+
+```
+
+\
+##Decision Tree
+\
+```{r}
+
+library(rpart)
+library(rpart.plot)
+```
+Data ready with Categorical and Numeric variables. Start Decision Tree
+Classification Tree with all variables for training dataset
+```{r}
+tree0 <- rpart(formula = Response ~ ., data = insurance.train, method = "class")
+tree0
+prp(tree0, extra = 1)
+```
+This tree has 3 leaf nodes with Employement and Renewal as the main split
+
+Checking predicition rate of tree
+```{r}
+pred0<- predict(tree0, type="class")
+table(insurance.train$Response, pred0, dnn = c("True", "Pred"))
+```
+The Tree0 has a prediction rate of 87.5% (5599 out of 6393 predicted right).
+
+Since only twow variables used, changing Complexity Parameter to add more depth.
+CP = 0.001 (0.01 default)
+```{r}
+tree1 <- rpart(formula = Response ~ ., data = insurance.train, cp=0.001, method = "class")
+tree1
+prp(tree1, extra = 1)
+```
+
+Depth of the tree is too large and unreadable because of length of variables and their factors.
+Pruning the tree to change Complexity Parameter to reduce depth.
+```{r}
+plotcp(tree1)
+printcp(tree1)
+```
+
+Setting the CP value to 0.0034
+```{r}
+tree_final<-prune(tree1, cp = 0.0034)
+prp(tree_final, extra = 1)
+rpart.plot(tree_final, extra=1)
+```
+Checking prediction rate of final tree - In Sample
+```{r}
+pred_final<- predict(tree_final, type="class")
+table(insurance.train$Response, pred_final, dnn = c("True", "Pred"))
+```
+
+
+Checking prediction rate of final tree - Out Sample
+```{r}
+pred_final_test<- predict(tree_final, newdata=insurance.test, type="class")
+table(insurance.test$Response, pred_final_test, dnn = c("True", "Pred"))
+```
+
+Checking AUC value for Training dataset- In Sample
+```{r}
+pred.traintree = prediction(as.double(pred_final), insurance.train$Response)
+perf = performance(pred.traintree, "tpr", "fpr")
+plot(perf, colorize=TRUE)
+unlist(slot(performance(pred.traintree,"auc"),"y.values"))
+str(pred_final)
+```
+
+
+
+Checking AUC value for Testing dataset- Out Sample
+```{r}
+pred.traintree.test = prediction(as.double(pred_final_test), insurance.test$Response)
+perf = performance(pred.traintree.test, "tpr", "fpr")
+plot(perf, colorize=TRUE)
+unlist(slot(performance(pred.traintree.test,"auc"),"y.values"))
+```
+
+
+Mean error for training data
+```{r}
+MR.treetrain<- mean(insurance.train$Response!= pred_final)
+MR.treetrain
+```
+
+Mean error for testing data
+```{r}
+MR.treetrain<- mean(insurance.test$Response!= pred_final_test)
+MR.treetrain
+```
+
+
+\
+Conclusion
+We have built two final models for our dataset, the Logistic Regression Model and the Decision Tree Model to help predict the response (Yes/No) of customers better based on different variables. As we can defer from the accuracy and AUC values of both our final models, we can conclude that our Decision Tree model came out as the Champion with an accuracy of 91.7%. Our Logistic model is our Challenger model with an accuracy of around 86% with an AUC of 81!
+
+
